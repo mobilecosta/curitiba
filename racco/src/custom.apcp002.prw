@@ -1,0 +1,91 @@
+#INCLUDE "TOTVS.CH"
+
+/*/{Protheus.doc} APCP002
+    Formula de lote de produção chamada pelo cadastro de formulas definido no parâmetro MV_FORMLOT
+    @type function
+    @version 12.1.2210
+    @author Carvalho Informatica
+    @since 16/10/2023
+    @return character, Lote
+/*/
+User Function APCP002()
+	Local nX := 1
+	Local nLot := 1
+
+	nPosCod    := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_COD"})
+	nPosTRT    := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_TRT"})
+	nPosLocal  := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_LOCAL"})
+	nPosQuant  := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_QUANT"})
+	nPosQtdOri := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_QTDEORI"})
+	nPosSegUM  := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_QTSEGUM"})
+	nPosLotCtl := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_LOTECTL"})
+	nPosLote   := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_NUMLOTE"})
+	nPosDValid := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_DTVALID"})
+	nPosPotenc := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_POTENCI"})
+	nPosData   := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_DATA"})
+	nPosOPorig := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_OPORIG"})
+	nPosRecno  := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_REC_WT"})
+	nPosPrdOri := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_PRDORG"})
+
+	for nX := 1 to len(aCols)
+		cCodProd := aCols[nX][nPosCod]
+		cLocal   := aCols[nX][nPosLocal]
+		nQuant   := aCols[nX][nPosQuant]
+
+		//Verifica se o produto controla lote/
+		SB1->(DBSetOrder(1))
+		If SB1->(DBSeek(xFilial("SB1") + cCodProd))
+			if SB1->B1_RASTRO == "L"
+				// Realiza query buscando na SB8 B8_SALDO > 0 do produto
+				cQry := " SELECT "
+				cQry += " SB8.B8_PRODUTO, SB8.B8_SALDO, SB8.B8_LOCAL, SB8.B8_LOTECTL, SB8.B8_DTVALID "
+				cQry += " FROM " + RETSQLNAME("SB8") + " SB8 "
+				cQry += " WHERE SB8.B8_FILIAL = '" + xFilial("SB8") + "' "
+				cQry += " AND SB8.B8_PRODUTO = '" + cCodProd + "' "
+				cQry += " AND SB8.B8_LOCAL = '" + cLocal + "' "
+				cQry += " AND SB8.B8_SALDO > 0 "
+				cQry += " ORDER BY SB8.B8_DTVALID "
+				PlsQuery(cQry, "QRY")
+				DbSelectArea("QRY")
+
+				nQtdRest := nQuant
+				aLotes   := {}
+
+				While !QRY->(EoF()) .and. nQtdRest > 0
+					nSaldoLote := QRY->B8_SALDO
+					nQtdUsar   := Min(nSaldoLote, nQtdRest)
+
+					aAdd(aLotes, { ;
+						QRY->B8_LOTECTL, ; // Lote
+					nQtdUsar,;        // Quantidade destinada deste lote
+					QRY->B8_DTVALID;   // Validade
+					})
+
+					nQtdRest -= nQtdUsar
+					QRY->(dbSkip())
+				End
+
+				QRY->(dbCloseArea())
+
+				// Se não conseguiu atender toda a quantidade
+				If nQtdRest == 0
+					// Para cada lote utilizado, crie uma linha no empenho (SD4)
+					For nLot := 1 To Len(aLotes)
+
+						if nLot > 1
+							aNovaLinha := aClone(aCols[nX])
+							aNovaLinha[nPosLotCtl]   := aLotes[nLot][1]
+							aNovaLinha[nPosQuant]    := aLotes[nLot][2]
+							aAdd(aCols, aNovaLinha)
+						else
+							aCols[nX][nPosLotCtl]    := aLotes[nLot][1]
+							aCols[nX][nPosQuant]     := aLotes[nLot][2]
+						endif
+					Next
+				End
+			EndIf
+		EndIf
+	next
+
+	oGet:Refresh()
+Return
