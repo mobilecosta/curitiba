@@ -1,0 +1,19 @@
+#include "TOTVS.CH"
+
+/*/{Protheus.doc} User Function MTA175MNU
+    LOCALIZAÇÃO  :  Function MATA175- Rotina responsável pelas Baixas do Controle de Qualidade (CQ).
+    EM QUE PONTO :  Antes de montar a tela do browse; Pode ser usado para adicionar botões no menu principal da rotina.
+    @type  Function
+    @author Claudio Bozzi
+    @since 16/10/2023
+    @version 2210
+    @param Nil
+    @return Nil
+    @see https://tdn.totvs.com/pages/releaseview.action?pageId=6087794
+    /*/
+User Function MTA175MNU()
+
+    aAdd(aRotina, {'*Lib./Rej. Lote','u_xcq001a()', 0, 2, 0, NIL})
+    aAdd(aRotina, {'*Estornar Lote','u_xcq002a()', 0, 2, 0, NIL})
+
+Return

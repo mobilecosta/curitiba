@@ -1,0 +1,161 @@
+#INCLUDE "TOTVS.CH"
+/*/{Protheus.doc} Img01
+Ponto de entrada referente a imagem de identificacao do Produto
+@type function
+@version 12.1.2210  
+@author Thiago Berna
+@since 23/10/2023
+@return character, Código ZPL
+/*/
+User Function Img01() as character //Identificacao de produto
+	Local oEtiqueta as object
+	Local cConteudo	as character
+	Local nqtde 	:= IIF(Len(PARAMIXB) >= 01, PARAMIXB[ 1], Nil)
+	Local cCodSep 	:= IIF(Len(PARAMIXB) >= 02, PARAMIXB[ 2], Nil)
+	//Local cCodID 	:= IIF(Len(PARAMIXB) >= 03, PARAMIXB[ 3], Nil)
+	Local nCopias	:= IIF(Len(PARAMIXB) >= 04, PARAMIXB[ 4], 0)
+	//Local cNFEnt  	:= IIF(Len(PARAMIXB) >= 05, PARAMIXB[ 5], Nil)
+	//Local cSeriee  	:= IIF(Len(PARAMIXB) >= 06, PARAMIXB[ 6], Nil)
+	Local cFornec  	:= IIF(Len(PARAMIXB) >= 07, PARAMIXB[ 7], Nil)
+	Local cLojafo  	:= IIF(Len(PARAMIXB) >= 08, PARAMIXB[ 8], Nil)
+	Local cArmazem 	:= IIF(Len(PARAMIXB) >= 09, PARAMIXB[ 9], Nil)
+	//Local cOP      	:= IIF(Len(PARAMIXB) >= 10, PARAMIXB[10], Nil)
+	//Local cNumSeq  	:= IIF(Len(PARAMIXB) >= 11, PARAMIXB[11], Nil)
+	//Local cLote    	:= IIF(Len(PARAMIXB) >= 12, PARAMIXB[12], Nil)
+	//Local cSLote   	:= IIF(Len(PARAMIXB) >= 13, PARAMIXB[13], Nil)
+	//Local dValid   	:= IIF(Len(PARAMIXB) >= 14, PARAMIXB[14], Nil)
+	//Local cCC  	   	:= IIF(Len(PARAMIXB) >= 15, PARAMIXB[15], Nil)
+	Local cLocOri  	:= IIF(Len(PARAMIXB) >= 16, PARAMIXB[16], Nil)
+	//Local cOPREQ   	:= IIF(Len(PARAMIXB) >= 17, PARAMIXB[17], Nil)
+	//Local cNumSerie	:= IIF(Len(PARAMIXB) >= 18, PARAMIXB[18], Nil)
+	//Local cOrigem  	:= IIF(Len(PARAMIXB) >= 19, PARAMIXB[19], Nil)
+	//Local cEndereco	:= IIF(Len(PARAMIXB) >= 20, PARAMIXB[20], Nil)
+	//Local cPedido  	:= IIF(Len(PARAMIXB) >= 21, PARAMIXB[21], Nil)
+	Local nResto   	:= IIF(Len(PARAMIXB) >= 22, IIF(Empty(PARAMIXB[22]), 0, PARAMIXB[22]), 0)
+	//Local cItNFE   	:= IIF(Len(PARAMIXB) >= 23, PARAMIXB[23], Nil)
+	oEtiqueta		:= IIF(FindClass("RACCO.Etiqueta"), RACCO.Etiqueta():New(), Nil)
+	cConteudo		:= ""
+	nTotal			:= 0
+	nQuant			:= 0
+	nSaldo			:= 0
+	cLocOri := IIF(cLocOri == cArmazem, " ", cLocOri)
+	nQtde   := IIF(nQtde == Nil, SB1->B1_QE, nQtde)
+	cCodSep := IIF(cCodSep == Nil, "", cCodSep)
+
+	If nResto > 0
+		nCopias++
+	EndIf
+
+	If (FWIsInCallStack("MATA103") .Or. FWIsInCallStack("ACDI011")) .And. FindClass("RACCO.Etiqueta")
+
+		If SB1->B1_QE > 0
+			nQtde 	:= SB1->B1_QE
+		Else
+			nQtde 	:= SD1->D1_QUANT
+			nCopias	:= 1
+		EndIf
+
+		SA2->(DBSetOrder(1)) //A2_FILIAL+A2_COD+A2_LOJA
+		SA2->(MsSeek(FWxFilial("SA1")+cFornec+cLojafo))
+
+		cConteudo := oEtiqueta:etiquetaRecebimento(nQtde, nCopias)
+
+	EndIf
+
+	FWFreeVar(@oEtiqueta)
+
+Return cConteudo
+
+/*
+ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+±±ÉÍÍÍÍÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍÍÍÍ»±±
+±±ºPrograma  ³img01cx   ºAutor  ³Sandro Valex        º Data ³  19/06/01   º±±
+±±ÌÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍ¹±±
+±±ºDesc.     ³Ponto de entrada referente a imagem de identificacao do     º±±
+±±º          ³produto para caixa a agranel                                º±±
+±±ÌÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¹±±
+±±ºUso       ³ AP5                                                        º±±
+±±ÈÍÍÍÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼±±
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß
+*/
+User Function Img01CX //dispositivo de identificacao de produto
+	Local cCodigo,sConteudo,cTipoBar, nX
+	Local nqtde 	:= If(len(PARAMIXB) >= 1,PARAMIXB[ 1],Nil)
+	Local cCodSep 	:= If(len(PARAMIXB) >= 2,PARAMIXB[ 2],Nil)
+	Local cCodID 	:= If(len(PARAMIXB) >= 3,PARAMIXB[ 3],Nil)
+	Local nCopias	:= If(len(PARAMIXB) >= 4,PARAMIXB[ 4],Nil)
+	Local cArmazem := If(len(PARAMIXB) >= 5,PARAMIXB[ 5],Nil)
+	Local cEndereco:= If(len(PARAMIXB) >= 6,PARAMIXB[ 6],Nil)
+
+	nQtde   := If(nQtde==Nil,SB1->B1_QE,nQtde)
+	cCodSep := If(cCodSep==Nil,'',cCodSep)
+
+	For nX := 1 to nCopias
+		If Usacb0("01")
+			cCodigo := If(cCodID ==Nil,CBGrvEti('01',{SB1->B1_COD,nQtde,cCodSep,Nil,Nil,Nil,Nil,Nil,cEndereco,cArmazem,,,,,,,,}),cCodID)
+		Else
+			cCodigo := SB1->B1_CODBAR
+		EndIf
+		cCodigo := Alltrim(cCodigo)
+		cTipoBar := 'MB07' //128
+		If ! Usacb0("01")
+			If Len(cCodigo) == 8
+				cTipoBar := 'MB03'
+			ElseIf Len(cCodigo) == 13
+				cTipoBar := 'MB04'
+			EndIf
+		EndIf
+		MSCBLOADGRF("SIGA.GRF")
+		MSCBBEGIN(1,6)
+		MSCBBOX(30,05,76,05)
+		MSCBBOX(02,12.7,76,12.7)
+		MSCBBOX(02,21,76,21)
+		MSCBBOX(30,01,30,12.7,3)
+		MSCBGRAFIC(2,3,"SIGA")
+		MSCBSAY(33,02,'CAIXA',"N","0","025,035")
+		MSCBSAY(33,06,"CODIGO","N","A","012,008")
+		MSCBSAY(33,08, AllTrim(SB1->B1_COD), "N", "0", "032,035")
+		MSCBSAY(05,14,"DESCRICAO","N","A","012,008")
+		MSCBSAY(05,17,SB1->B1_DESC,"N", "0", "020,030")
+		MSCBSAYBAR(23,22,cCodigo,"N",cTipoBar,8.36,.F.,.T.,.F.,,2,1,.F.,.F.,"1",.T.)
+		MSCBInfoEti("Produto Granel","30X100")
+		sConteudo:=MSCBEND()
+	Next
+Return sConteudo
+
+/*
+ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+±±ÉÍÍÍÍÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍÍÍÍ»±±
+±±ºPrograma  ³img01De   ºAutor  ³Sandro Valex        º Data ³  19/06/01   º±±
+±±ÌÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍ¹±±
+±±ºDesc.     ³Ponto de entrada referente a imagem de identificacao da     º±±
+±±º          ³Unidade de despacho                                         º±±
+±±ÌÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¹±±
+±±ºUso       ³ AP5                                                        º±±
+±±ÈÍÍÍÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼±±
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß
+*/
+User Function Img01DE //dispositivo de identificacao de unidade de despacho produto
+	Local nCopias 	:= If(len(PARAMIXB) >= 1,PARAMIXB[ 1],Nil)
+	Local cCodigo 	:= If(len(PARAMIXB) >= 2,Alltrim(PARAMIXB[ 2]),Nil)
+
+	MSCBLOADGRF("SIGA.GRF")
+	MSCBBEGIN(nCopias,6)
+	MSCBBOX(30,05,76,05)
+	MSCBBOX(02,12.7,76,12.7)
+	MSCBBOX(02,21,76,21)
+	MSCBBOX(30,01,30,12.7,3)
+	MSCBGRAFIC(2,3,"SIGA")
+	MSCBSAY(33,02,'UNID. DE DESPACHO',"N","0","025,035")
+	MSCBSAY(33,06,"CODIGO","N","A","012,008")
+	MSCBSAY(33,08, AllTrim(SB1->B1_COD), "N", "0", "032,035")
+	MSCBSAY(05,14,"DESCRICAO","N","A","012,008")
+	MSCBSAY(05,17,SB1->B1_DESC,"N", "0", "020,030")
+	MSCBSAYBAR(23,22,cCodigo,"N","MB01",8.36,.F.,.T.,.F.,,2,1,.F.,.F.,"1",.T.)  // codigo intercaldo 2 e 5 para EAN14
+	MSCBInfoEti("Unid.Despacho","30X100")
+	sConteudo:=MSCBEND()
+Return sConteudo

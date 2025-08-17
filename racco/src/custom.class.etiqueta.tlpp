@@ -1,0 +1,331 @@
+#INCLUDE "TLPP-CORE.TH"
+#INCLUDE "TLPP-OBJECT.TH"
+#INCLUDE "TOTVS.CH"
+#INCLUDE 'APVT100.CH'
+
+namespace RACCO
+
+/*/{Protheus.doc} Etiqueta
+Classe impressão de Etiquetas
+@type class
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+/*/
+class Etiqueta from longNameClass
+
+	private data cModelo    as character
+	private data cPorta     as character
+	private data cServer    as character
+	private data cEnv       as character
+	private data cFila      as character
+	private data cPath      as character
+	private data nPortIP    as numeric
+	private data nBuffer    as numeric
+	private data lTipo      as logical
+	private data lDrvWin    as logical
+
+	protected Method Init()
+
+	public Method New() Constructor
+	public Method Destroy()
+
+	public Method iniciaImpressora() as logical
+	public Method selecionaImpressora() as logical
+	public Method etiquetaProducao(nTotal as numeric, nQuant as numeric, nSaldo as numeric, cProduto as character, cBarcode as character, cLote as character, dData as date, cDescPrd as character, cUM as character) as character
+	public Method etiquetaRecebimento(nQtde as numeric, nCopias as numeric) as character
+	public Method divideDescricao(cDesc as character, nMaxL1 as numeric, nMaxL2 as numeric) as array
+	public Method finalizaImpressora() as logical
+
+endclass
+
+/*/{Protheus.doc} New
+Método construtor da classe.
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+@return Object, Instância da Classe
+/*/
+Method New() class Etiqueta
+
+	Self:Init()
+
+Return Self
+
+/*/{Protheus.doc} Destroy
+Método destrutor da classe e suas propriedades.
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+/*/
+Method Destroy() class Etiqueta
+
+    FWFreeVar(@Self:cModelo)
+	FWFreeVar(@Self:cServer)
+	FWFreeVar(@Self:cEnv)
+	FWFreeVar(@Self:cFila)
+	FWFreeVar(@Self:cPath)
+    FWFreeVar(@Self:cPorta)
+	FWFreeVar(@Self:nPortIP)
+	FWFreeVar(@Self:nBuffer)
+	FWFreeVar(@Self:lTipo)
+	FWFreeVar(@Self:lDrvWin)
+
+Return
+
+/*/{Protheus.doc} Init
+Método para inicializar propriedades da classe.
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+/*/
+Method Init() class Etiqueta
+
+	Self:cModelo    := ""
+	Self:cServer    := ""
+	Self:cEnv       := ""
+	Self:cFila      := ""
+	Self:cPath      := ""
+    Self:cPorta     := ""
+	Self:nPortIP    := 0
+	Self:nBuffer    := 0
+	Self:lTipo      := .F.
+	Self:lDrvWin    := .F.
+
+Return
+
+/*/{Protheus.doc} iniciaImpressora
+Inicializa a impressora
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+@return logical, Verdadeiro ou Falso
+/*/
+Method iniciaImpressora() as logical class Etiqueta
+
+	Local lRet as logical
+	lRet    := .F.
+
+	MSCBPRINTER(Self:cModelo, Self:cPorta, , , Self:lTipo, Self:nPortIP, Self:cServer, Self:cEnv, Self:nBuffer, Self:cFila, Self:lDrvWin, Self:cPath)
+	lRet := MSCBCHKSTATUS(.T.)
+
+Return lRet
+
+/*/{Protheus.doc} selecionaImpressora
+Seleciona a impressora
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+@return logical, Verdadeiro ou Falso
+/*/
+Method selecionaImpressora() as logical class Etiqueta
+
+	Local   lRet    as logical
+    Local   lLoop   as logical
+    Local   aPergs  as array
+    Private cImp as character
+	lRet    := .F.
+    lLoop   := .T.
+    aPergs  := {}
+    cImp 	:= Space(GetSX3Cache("CB5_CODIGO", "X3_TAMANHO"))
+
+    CB5->(DBSetOrder(1))
+
+	//Verifica se a execução é via ACD
+	If Type("lVT100B") == "L"
+		aTela := VTSave()
+		While Empty(cImp)
+			VTClear
+			@ 2,00 VTSAY "Impressora: " VTGET cImp pict '@!'  Valid U_RPCP01VI() F3 "CB5IMP"
+			VTRead
+
+			If Empty(cImp)
+				VTBEEP(2)
+				VTALERT("Impressora invalida.", "Atencao", .T., 5000, 3)
+			EndIf
+		EndDo
+
+		VTClear
+		VTRestore( , , , , aTela)
+	Else
+
+		AAdd(aPergs, {1, "Impressora: ", cImp, "", "NaoVazio() .And. Existcpo('CB5')", "CB5IMP", ".T.", 80, .T.})
+
+		SaveInter()
+		While lLoop
+            If ParamBox(aPergs, "Parâmetros", , , , , , , , , .F., .F.)
+                lLoop := .F.
+            EndIf
+        EndDo
+		RestInter()
+
+	EndIf
+
+    Self:cModelo    := AllTrim(CB5->CB5_MODELO)
+	Self:cServer    := AllTrim(CB5->CB5_SERVER)
+	Self:cEnv       := AllTrim(CB5->CB5_ENV)
+	Self:cFila      := AllTrim(CB5->CB5_FILA)
+	Self:cPath      := AllTrim(CB5->CB5_PATH)
+	Self:nPortIP    := Val(CB5->CB5_PORTIP)
+	Self:nBuffer    := CB5->CB5_BUFFER
+	Self:lTipo      := CB5->CB5_TIPO $ "12"
+	Self:lDrvWin    := CB5->CB5_DRVWIN == "1"
+
+	//Porta de impressão
+	If CB5->CB5_TIPO == "4"
+		Self:cPorta := "IP"
+	Else
+		IF CB5->CB5_PORTA $ "12345"
+			Self:cPorta  := "COM"+CB5->CB5_PORTA+":"+CB5->CB5_SETSER
+		EndIf
+		IF CB5->CB5_LPT $ "12345"
+			Self:cPorta  := "LPT"+CB5->CB5_LPT
+		EndIf
+	EndIf
+
+    FWFreeVar(@aPergs)
+
+Return lRet
+
+/*/{Protheus.doc} etiquetaProducao
+Imprime a etiqueta de produção.
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+@return character, Etiqueta
+/*/
+Method etiquetaProducao(nTotal as numeric, nQuant as numeric, nSaldo as numeric, cProduto as character, cBarcode as character, cLote as character, dData as date, cDescPrd as character, cUM as character) as character class Etiqueta
+
+	Local cRet 	as character
+	Local aDesc	as array
+	cRet 	:= ""
+	aDesc	:= Self:divideDescricao(cDescPrd, 30, 40)
+
+	MSCBBEGIN(IIF(nTotal > 0, nTotal/nQuant, 1), 6)
+	MSCBBOX(02, 02, 93, 48)
+	MSCBSAY(05, 05, "ITEM: " + AllTrim(cProduto), "N", "0", "035,035")
+	MSCBSAYBAR(09,10,cBarcode, "N", "MB01", 8.36, .F., .T., .F., , 2, 1, .F., .F., "1", .T.)
+	MSCBSAY(52, 05, "LOTE: " + AllTrim(cLote), "N", "0", "035,035")
+	MSCBSAYBAR(57,10,AllTrim(cLote), "N", "MB01", 8.36, .F., .T., .F., , 2, 1, .F., .F., "1", .T.)
+	MSCBSAY(05, 25, "Qtde.: " + AllTrim(Transform(IIF(nTotal > 0,nQuant, nSaldo), GetSX3Cache("H6_QTDPROD", "X3_PICTURE"))) + " " + cUM, "N", "0", "035,035")
+	MSCBSAY(52, 25, "Fabricação: " + SubStr(DTOC(dData), 4), "N", "0", "035,035")
+	MSCBSAY(05, 35, "Descrição: " + /*SubStr(cDescPrd, 1, 30)*/aDesc[1], "N", "0", "035,035") //30
+	MSCBSAY(05, 40, /*SubStr(cDescPrd, 31, 40)*/aDesc[2], "N", "0", "035,035")  //40
+	MSCBInfoEti("ETQPRD", "95X50")
+	cRet := MSCBEND()
+
+	FWFreeVar(@aDesc)
+
+Return cRet
+
+/*/{Protheus.doc} etiquetaRecebimento
+Imprime a etiqueta de Recebimento.
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+@return character, Etiqueta
+/*/
+Method etiquetaRecebimento(nQtde as numeric, nCopias as numeric) as character class Etiqueta
+
+	Local cRet      as character
+	Local cResp		as character
+	Local aTexto    as array
+	Local aDesc		as array
+	Local nCount    as numeric
+	cRet    := ""
+	cResp	:= SuperGetMV("MV_XRESPTC", .F., "ANDRESSA FILPO")
+	aTexto  := {}
+	aDesc	:= {}
+	nCount  := 0
+
+	aDesc	:= Self:divideDescricao(SB1->B1_DESC, 35, 55)
+
+	//MSCBBEGIN(IIF(nTotal > 0, nTotal/nQuant, 1), 6)
+	MSCBBEGIN(nCopias, 6)
+
+    //QRCode
+	AAdd(aTexto,"^FO535,50^BQ,2,10^FDQA," + AllTrim(SB1->B1_COD) + "^FS" + CRLF)
+
+	//Cabeçalho
+	MSCBBOX(02, 02, 98, 148)
+	MSCBSAY(080, 042, "CONTROLE DE QUALIDADE", "R", "0", "070,070")
+	MSCBSAY(065, 065, "QUARENTENA", "R", "0", "070,070")
+
+	//Quadro
+	MSCBBOX(15, 05, 60, 145)
+	MSCBSAY(053, 010, "Código: " + AllTrim(SB1->B1_COD) + " - " + AllTrim(aDesc[1]), "R", "0", "035,035")
+	MSCBSAY(046, 010, AllTrim(aDesc[2]), "R", "0", "035,035")
+	MSCBSAY(039, 010, "Lote Int.: " + AllTrim(SD1->D1_LOTECTL), "R", "0", "035,035")
+	MSCBSAY(039, 085, "Qtde. Lote: " + AllTrim(Transform(SD1->D1_QUANT, GetSX3Cache("D1_QUANT", "X3_PICTURE"))), "R", "0", "035,035")
+	MSCBSAY(032, 010, "Data Val.: " + DTOC(SD1->D1_DTVALID), "R", "0", "035,035")
+	MSCBSAY(032, 085, "Qtde.: " + AllTrim(Transform(nQtde, GetSX3Cache("D1_QUANT", "X3_PICTURE"))), "R", "0", "035,035")
+	MSCBSAY(025, 010, "Fornecedor: " + AllTrim(SA2->A2_NREDUZ), "R", "0", "035,035")
+	MSCBSAY(018, 010, "Lote Forn.: " + SD1->D1_LOTEFOR, "R", "0", "035,035")
+
+	//Rodapé
+	MSCBSAY(008, 095, cResp, "R", "0", "035,035")
+	MSCBSAY(003, 100, "Responsável", "R", "0", "035,035")
+	MSCBSAY(003, 025, "BAYONNE", "R", "0", "070,070") //MSCBSAY(003, 025, "BAYONNE", "R", "A", "070,070")
+
+	For nCount := 1 To Len(aTexto)
+		MSCBWRITE(aTexto[nCount])
+	Next nCount
+
+	MSCBInfoEti("ETQREC", "100X150")
+	cRet := MSCBEND()
+
+	FWFreeVar(@aTexto)
+	FWFreeVar(@aDesc)
+
+Return cRet
+
+/*/{Protheus.doc} divideDescricao
+Divide descrição em 2 linhas
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+@return character, Etiqueta
+/*/
+Method divideDescricao(cDesc as character, nMaxL1 as numeric, nMaxL2 as numeric) as array class Etiqueta
+	Local aDesc as array
+	Local cLin1	as character
+	Local cLin2	as character
+	Local nPos	as numeric
+	aDesc 	:= {}
+	cLin1 	:= SubStr(cDesc, 1, nMaxL1)
+	cLin2 	:= SubStr(cDesc, nMaxL1 + 1, nMaxL2)
+	nPos	:= 0	
+
+	If !SubStr(cDesc, nMaxL1 + 1, 1) == " "
+		nPos := RAT(" ", cLin1)
+		cLin1 	:= SubStr(cDesc, 1, nPos)
+		cLin2 	:= SubStr(cDesc, nPos + 1, nMaxL2)
+	EndIf
+
+	aDesc := {cLin1, cLin2}
+
+Return aDesc
+/*/{Protheus.doc} finalizaImpressora
+Finaliza a impressora.
+@type method
+@version 12.1.2210
+@author Thiago Berna
+@since 23/10/2023
+@return logical, Verdadeiro ou Falso
+/*/
+Method finalizaImpressora() as logical class Etiqueta
+
+	Local lRet as logical
+	lRet := .T.
+
+	MSCBCLOSEPRINTER()
+
+Return lRet
