@@ -74,23 +74,3 @@ User Function MTA381GRV()
 
     FWRestArea(aArea)
 return
-
-
-
-
-/*
-//Verificar se controla lote
-If Rastro(SD4->D4_COD)
-
-*/
-
-/*Verifica se o produto controla lote*/
-/*
-		SB1->(DBSetOrder(1))
-		If SB1->(DBSeek(xFilial("SB1") + (cAliasZZBA)->ZZB_PROD))
-			lControlaLote := SB1->B1_RASTRO == "L"
-		EndIf
-
-        */
-
-

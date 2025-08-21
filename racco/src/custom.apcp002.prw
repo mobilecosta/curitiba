@@ -40,10 +40,11 @@ User Function APCP002()
 				cQry := " SELECT "
 				cQry += " SB8.B8_PRODUTO, SB8.B8_SALDO, SB8.B8_LOCAL, SB8.B8_LOTECTL, SB8.B8_DTVALID "
 				cQry += " FROM " + RETSQLNAME("SB8") + " SB8 "
-				cQry += " WHERE SB8.B8_FILIAL = '" + xFilial("SB8") + "' "
+				cQry += " WHERE SB8.B8_FILIAL = '" + FWxFilial("SB8") + "' "
 				cQry += " AND SB8.B8_PRODUTO = '" + cCodProd + "' "
 				cQry += " AND SB8.B8_LOCAL = '" + cLocal + "' "
 				cQry += " AND SB8.B8_SALDO > 0 "
+				cQry += " AND SB8.D_E_L_E_T_ = ' ' "
 				cQry += " ORDER BY SB8.B8_DTVALID "
 				PlsQuery(cQry, "QRY")
 				DbSelectArea("QRY")
@@ -75,17 +76,23 @@ User Function APCP002()
 						if nLot > 1
 							aNovaLinha := aClone(aCols[nX])
 							aNovaLinha[nPosLotCtl]   := aLotes[nLot][1]
+							aNovaLinha[nPosQtdOri]   := aLotes[nLot][2]
 							aNovaLinha[nPosQuant]    := aLotes[nLot][2]
+							aNovaLinha[nPosDValid]   := aLotes[nLot][3]
+							aNovaLinha[nPosRecno]    := 0
 							aAdd(aCols, aNovaLinha)
 						else
+							// Atualiza a linha atual com os dados do lote
 							aCols[nX][nPosLotCtl]    := aLotes[nLot][1]
+							aCols[nX][nPosQtdOri]    := aLotes[nLot][2]
 							aCols[nX][nPosQuant]     := aLotes[nLot][2]
+							aCols[nX][nPosDValid]    := aLotes[nLot][3]
 						endif
 					Next
 				End
 			EndIf
 		EndIf
-	next
+	Next
 
 	oGet:Refresh()
 Return
