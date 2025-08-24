@@ -9,7 +9,8 @@
     @return character, Lote
 /*/
 User Function APCP002()
-	Local nX := 1
+	Local nX   := 1
+	Local nY   := 1
 	Local nLot := 1
 
 	nPosCod    := aScan(aHeader,{|aX| AllTrim(aX[2]) == "D4_COD"})
@@ -34,8 +35,8 @@ User Function APCP002()
 
 		//Verifica se o produto controla lote/
 		SB1->(DBSetOrder(1))
-		If SB1->(DBSeek(xFilial("SB1") + cCodProd))
-			if SB1->B1_RASTRO == "L"
+		If SB1->(DBSeek(xFilial("SB1") + cCodProd)) .And. Empty(aCols[nX][nPosLotCtl])
+			if SB1->B1_RASTRO == "L"
 				// Realiza query buscando na SB8 B8_SALDO > 0 do produto
 				cQry := " SELECT "
 				cQry += " SB8.B8_PRODUTO, SB8.B8_SALDO, SB8.B8_LOCAL, SB8.B8_LOTECTL, SB8.B8_DTVALID "
@@ -69,7 +70,7 @@ User Function APCP002()
 				QRY->(dbCloseArea())
 
 				// Se não conseguiu atender toda a quantidade
-				If nQtdRest == 0
+				if Len(aLotes) > 0
 					// Para cada lote utilizado, crie uma linha no empenho (SD4)
 					For nLot := 1 To Len(aLotes)
 
@@ -80,6 +81,14 @@ User Function APCP002()
 							aNovaLinha[nPosQuant]    := aLotes[nLot][2]
 							aNovaLinha[nPosDValid]   := aLotes[nLot][3]
 							aNovaLinha[nPosRecno]    := 0
+
+							// Realiza o calculo da segunda unidade de medida
+							if SB1->B1_TIPCONV == "M"
+								aNovaLinha[nPosSegUM] := aNovaLinha[nPosQuant] * SB1->B1_CONV
+							elseif SB1->B1_TIPCONV == "D"
+								aNovaLinha[nPosSegUM] := aNovaLinha[nPosQuant] / SB1->B1_CONV
+							endif
+
 							aAdd(aCols, aNovaLinha)
 						else
 							// Atualiza a linha atual com os dados do lote
@@ -87,12 +96,54 @@ User Function APCP002()
 							aCols[nX][nPosQtdOri]    := aLotes[nLot][2]
 							aCols[nX][nPosQuant]     := aLotes[nLot][2]
 							aCols[nX][nPosDValid]    := aLotes[nLot][3]
+
+							// Realiza o calculo da segunda unidade de medida
+							if SB1->B1_TIPCONV == "M"
+								aCols[nX][nPosSegUM] := aCols[nX][nPosQuant] * SB1->B1_CONV
+							elseif SB1->B1_TIPCONV == "D"
+								aCols[nX][nPosSegUM] := aCols[nX][nPosQuant] / SB1->B1_CONV
+							endif
 						endif
 					Next
-				End
+
+					// Se for o caso de possuirmos lotes, mas não conseguimos consumir todo o saldo, copia a linha e adiciona o saldo restante
+					if nQtdRest > 0
+						aNovaLinha := aClone(aCols[nX])
+						aNovaLinha[nPosLotCtl]   := ""
+						aNovaLinha[nPosQtdOri]   := nQtdRest
+						aNovaLinha[nPosQuant]    := nQtdRest
+						aNovaLinha[nPosDValid]   := CtoD("//")
+						aNovaLinha[nPosRecno]    := 0
+
+						// Realiza o calculo da segunda unidade de medida
+						if SB1->B1_TIPCONV == "M"
+							aNovaLinha[nPosSegUM] := aNovaLinha[nPosQuant] * SB1->B1_CONV
+						elseif SB1->B1_TIPCONV == "D"
+							aNovaLinha[nPosSegUM] := aNovaLinha[nPosQuant] / SB1->B1_CONV
+						endif
+						
+						aAdd(aCols, aNovaLinha)
+					endif
+				endif
+
 			EndIf
 		EndIf
 	Next
+
+	// Mensagens de sucesso
+	nLtInfo := 0
+	for nY := 1 to len(aCols)
+		if !Empty(aCols[nY][nPosLotCtl])
+			nLtInfo += 1
+		endIF
+	next
+
+	// Verifica se é parcial total ou nada
+	if nLtInfo == len(aCols)
+		FWAlertSuccess("Empenho atualizado: Todos os lotes foram reservados para a OP", "Sucesso")
+	elseif nLtInfo > 0
+		FWAlertError("Empenho atualizado: Um ou mais produtos não possuem saldo disponível", "Aviso")
+	endif
 
 	oGet:Refresh()
 Return

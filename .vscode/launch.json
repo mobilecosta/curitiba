@@ -2,17 +2,27 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"type": "totvs_language_debug",
+			"type": "totvs_language_web_debug",
 			"request": "launch",
-			"name": "Depuração do idioma TOTVS",
+			"name": "2410 WebApp RACCO",
 			"program": "${command:AskForProgramName}",
 			"cwb": "${workspaceFolder}",
-			"smartclientBin": "../totvs/bin/smartclient/smartclient.exe",
 			"isMultiSession": true,
 			"enableTableSync": true,
-			"extendFeatures": {
-				"charDetails": false
-			}
+			"programArguments": [],
+			"enableMultiThread": true,
+			"enableProfile": false,
+			"isAccessibilityMode": false,
+			"doNotShowSplash": false,
+			"language": "",
+			"ignoreFiles": false,
+			"smartclientUrl": "https://lfrservicos152702.protheus.cloudtotvs.com.br:1612/webapp"
 		}
-	]
+	],
+	"lastPrograms": [
+		{
+			"label": "sigapcp"
+		}
+	],
+	"lastProgramExecuted": "sigapcp"
 }
